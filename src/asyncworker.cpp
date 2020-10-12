@@ -1,9 +1,10 @@
-#include <cbsdng/daemon/asyncworker.h>
-
 #include <iostream>
 #include <signal.h>
 #include <sstream>
 #include <unistd.h>
+
+#include <cbsdng/daemon/asyncworker.h>
+
 
 bool AsyncWorker::quit = false;
 std::mutex AsyncWorker::mutex;
@@ -11,16 +12,19 @@ std::condition_variable AsyncWorker::condition;
 std::list<AsyncWorker *> AsyncWorker::finished;
 static auto finishedThread = std::thread(&AsyncWorker::removeFinished);
 
+
 AsyncWorker::AsyncWorker(const int &cl) : client{cl}
 {
   t = std::thread(&AsyncWorker::_process, this);
 }
+
 
 AsyncWorker::~AsyncWorker()
 {
   t.join();
   cleanup();
 }
+
 
 void AsyncWorker::cleanup()
 {
@@ -30,6 +34,7 @@ void AsyncWorker::cleanup()
     client = -1;
   }
 }
+
 
 void AsyncWorker::process()
 {
@@ -80,6 +85,7 @@ void AsyncWorker::process()
   }
 }
 
+
 void AsyncWorker::execute(const Message &m)
 {
   std::cout << m.data() << std::endl;
@@ -87,7 +93,7 @@ void AsyncWorker::execute(const Message &m)
   {
     case 0:
     {
-      std::cout << "Executing cbsd j" << m.getpayload() << std::endl;
+      std::cout << "Executing cbsd j" << m.getpayload() << '\n';
       std::string command = "cbsd j" + m.getpayload();
       system(command.data());
       break;
@@ -96,6 +102,7 @@ void AsyncWorker::execute(const Message &m)
       break;
   }
 }
+
 
 void AsyncWorker::_process()
 {
@@ -106,6 +113,7 @@ void AsyncWorker::_process()
   }
   condition.notify_one();
 }
+
 
 void AsyncWorker::removeFinished()
 {
@@ -126,6 +134,7 @@ void AsyncWorker::removeFinished()
   }
 }
 
+
 void AsyncWorker::terminate()
 {
   quit = true;
@@ -135,5 +144,6 @@ void AsyncWorker::terminate()
   }
   condition.notify_all();
 }
+
 
 void AsyncWorker::wait() { finishedThread.join(); }

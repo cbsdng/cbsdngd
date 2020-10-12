@@ -1,0 +1,56 @@
+#include <iostream>
+#include <signal.h>
+#include <unistd.h>
+
+#include <cbsdng/daemon/asyncworker.h>
+#include <cbsdng/daemon/socket.h>
+
+
+Socket *s;
+
+
+void signalHandler(int sig)
+{
+  signal(sig, SIG_IGN);
+  AsyncWorker::terminate();
+  AsyncWorker::wait();
+  s->cleanup();
+  exit(0);
+}
+
+int main(int argc, char **argv)
+{
+  const auto optstr = "s:";
+  std::string socketPath = "/var/run/cbsdng/cbsdng.sock";
+  int c;
+  int optreset = 1;
+  int optind = 1;
+
+  signal(SIGINT, signalHandler);
+
+  while ((c = getopt(argc, argv, optstr)) != -1) {
+    switch (c) {
+      case 's':
+        socketPath = optarg;
+        break;
+      default:
+        return 1;
+    }
+  }
+
+  s = new Socket(socketPath);
+
+  while (1)
+  {
+    auto client = s->waitForClient();
+    if (client != -1)
+    {
+      new AsyncWorker(client);
+    }
+    else
+    {
+      std::cerr << "Error accepting client!\n";
+    }
+  }
+  return 0;
+}

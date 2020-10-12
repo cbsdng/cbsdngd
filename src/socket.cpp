@@ -1,5 +1,3 @@
-#include <cbsdng/daemon/socket.h>
-
 #include <fcntl.h>
 #include <iostream>
 #include <stdio.h>
@@ -10,7 +8,11 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <cbsdng/daemon/socket.h>
+
+
 std::vector<Socket *> Socket::all;
+
 
 Socket::Socket(const std::string &socket_path) : socketPath{socket_path}
 {
@@ -20,7 +22,7 @@ Socket::Socket(const std::string &socket_path) : socketPath{socket_path}
   if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
   {
     perror("socket error");
-    exit(-1);
+    exit(1);
   }
 
   memset(&addr, 0, sizeof(addr));
@@ -30,22 +32,24 @@ Socket::Socket(const std::string &socket_path) : socketPath{socket_path}
 
   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
   {
-    std::cerr << "bind error: " << strerror(errno) << std::endl;
-    exit(-1);
+    std::cerr << "bind error: " << strerror(errno) << '\n';
+    exit(1);
   }
   chmod(socketPath.data(), 0666);
   if (listen(fd, 5) == -1)
   {
-    std::cerr << "listen error: " << strerror(errno) << std::endl;
-    exit(-1);
+    std::cerr << "listen error: " << strerror(errno) << '\n';
+    exit(1);
   }
 }
+
 
 Socket::~Socket()
 {
   cleanup();
-  all.erase(it);
+  // all.erase(it);
 }
+
 
 void Socket::cleanup()
 {
@@ -57,12 +61,13 @@ void Socket::cleanup()
   }
 }
 
+
 int Socket::waitForClient()
 {
   int client;
   if ((client = accept(fd, NULL, NULL)) == -1)
   {
-    perror("accept error");
+    std::cerr << "accept error: " << strerror(errno) << '\n';
     cleanup();
     return -1;
   }
