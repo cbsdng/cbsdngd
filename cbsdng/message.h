@@ -29,34 +29,34 @@ public:
     is >> m.id;
     if (is.fail())
     {
-      std::cerr << "Failed to load id" << std::endl;
+      std::cerr << "Failed to load id\n";
       return is;
     }
     is >> m.type;
     if (is.fail())
     {
-      std::cerr << "Failed to load type" << std::endl;
+      std::cerr << "Failed to load type\n";
       return is;
     }
     int size;
     is >> size;
     if (is.fail())
     {
-      std::cerr << "Failed to load size" << std::endl;
+      std::cerr << "Failed to load size\n";
     }
     ++size;
     char c;
     is.get(c);
     if (is.fail())
     {
-      std::cerr << "Failed to load space after size" << std::endl;
+      std::cerr << "Failed to load space after size\n";
       return is;
     }
     char buffer[size];
     is.get(buffer, size, '\0');
     if (is.fail())
     {
-      std::cerr << "Failed to load payload" << std::endl;
+      std::cerr << "Failed to load payload\n";
       return is;
     }
     m.payload = buffer;
