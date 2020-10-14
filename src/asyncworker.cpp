@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include <signal.h>
 #include <sstream>
 #include <unistd.h>
@@ -88,14 +89,24 @@ void AsyncWorker::process()
 
 void AsyncWorker::execute(const Message &m)
 {
-  std::cout << m.data() << std::endl;
+  std::cout << m.data() << '\n';
   switch(m.gettype())
   {
     case 0:
     {
-      std::cout << "Executing cbsd j" << m.getpayload() << '\n';
-      std::string command = "cbsd j" + m.getpayload();
-      system(command.data());
+      char *token;
+      std::string command = "j" + m.getpayload();
+      std::string cbsd = "cbsd";
+      std::string raw_command = "cbsd j" + command;
+      std::vector<char *> args;
+      args.push_back(cbsd.data());
+      while ((token = strtok(command.data(), " ")) != nullptr)
+      {
+        args.push_back(token);
+      }
+      std::cout << "Executing " << raw_command << '\n';
+      // system(raw_command.data());
+      execvp(args[0], args.data());
       break;
     }
     default:
