@@ -3,8 +3,15 @@
 #include <signal.h>
 #include <sstream>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <sys/event.h>
+#include <chrono>
 
 #include <cbsdng/daemon/asyncworker.h>
+
+
+#define READ_END 0
+#define WRITE_END 1
 
 
 bool AsyncWorker::quit = false;
@@ -89,31 +96,93 @@ void AsyncWorker::process()
 
 void AsyncWorker::execute(const Message &m)
 {
-  std::cout << m.data() << '\n';
   switch(m.gettype())
   {
     case 0:
     {
-      char *token;
-      std::string command = "j" + m.getpayload();
-      std::string cbsd = "cbsd";
-      std::string raw_command = "cbsd j" + command;
-      std::vector<char *> args;
-      args.push_back(cbsd.data());
-      while ((token = strtok(command.data(), " ")) != nullptr)
+      int childOut[2];
+      int childErr[2];
+      if (pipe(childOut) == -1)
       {
-        args.push_back(token);
+        std::cerr << "Failed to initialize output pipe\n";
+        return;
       }
-      std::cout << "Executing " << raw_command << '\n';
-      // system(raw_command.data());
-      execvp(args[0], args.data());
+      if (pipe(childErr) == -1)
+      {
+        std::cerr << "Failed to initialize error pipe\n";
+        return;
+      }
+
+      auto pid = fork();
+      if (pid < 0)
+      {
+        std::cerr << "Failed to fork()\n";
+        return;
+      }
+      else if (pid == 0) // child
+      {
+        close(childOut[READ_END]);
+        close(childErr[READ_END]);
+        if (dup2(childOut[WRITE_END], STDOUT_FILENO) == -1)
+        {
+          std::cerr << "Failed to redirect output\n";
+          exit(1);
+        }
+        if (dup2(childErr[WRITE_END], STDERR_FILENO) == -1)
+        {
+          std::cerr << "Failed to redirect error\n";
+          exit(1);
+        }
+        std::string command = "j" + m.getpayload();
+        std::string raw_command = "cbsd " + command;
+        std::vector<char *> args;
+        char *token = strtok(raw_command.data(), " ");
+        args.push_back(token);
+        while ((token = strtok(nullptr, " ")) != nullptr)
+        {
+          args.push_back(token);
+        }
+        execvp(args[0], args.data());
+      }
+      else // parent
+      {
+        close(childOut[WRITE_END]);
+        close(childErr[WRITE_END]);
+        int r;
+        struct kevent events[2];
+        struct kevent tevent;
+        int kq = kqueue();
+        if (kq == -1)
+        {
+          std::cerr << "kqueue: \n";
+        }
+        EV_SET(events, childOut[READ_END], EVFILT_READ, EV_ADD | EV_CLEAR, NOTE_READ, 0, nullptr);
+        EV_SET(events+1, childErr[READ_END], EVFILT_READ, EV_ADD | EV_CLEAR, NOTE_READ, 0, nullptr);
+        int ret = kevent(kq, events, 2, nullptr, 0, nullptr);
+        if (ret == -1)
+        {
+          std::cerr << "kevent register: " << strerror(errno) << '\n';
+        }
+        while (true)
+        {
+          int ret = kevent(kq, nullptr, 0, &tevent, 1, nullptr);
+          if (ret == -1 || tevent.data == 0) { break; }
+          char buffer[tevent.data+1];
+          r = read(tevent.ident, buffer, tevent.data);
+          if (r <= 0) { continue; }
+          buffer[r] = '\0';
+          std::cout << buffer;
+        }
+        std::cout << std::flush;
+        int st;
+        waitpid(pid, &st, 0);
+      }
       break;
     }
     default:
       break;
   }
 }
-
 
 void AsyncWorker::_process()
 {
