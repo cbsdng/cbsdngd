@@ -19,6 +19,12 @@ void signalHandler(int sig)
   exit(0);
 }
 
+
+void ignoreSignal(int sig)
+{
+  signal(sig, SIG_IGN);
+}
+
 int main(int argc, char **argv)
 {
   const auto optstr = "ds:";
@@ -29,6 +35,7 @@ int main(int argc, char **argv)
   int optind = 1;
 
   signal(SIGINT, signalHandler);
+  signal(SIGPIPE, ignoreSignal);
 
   while ((c = getopt(argc, argv, optstr)) != -1) {
     switch (c) {

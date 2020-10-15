@@ -46,51 +46,49 @@ void AsyncWorker::cleanup()
 
 void AsyncWorker::process()
 {
-  while (!quit)
-  {
-    int rc;
-    char buf[128];
-    std::stringstream raw_data;
+  int rc;
+  char buf[128];
+  std::stringstream raw_data;
 
-    rc = read(client, buf, sizeof(buf));
-    if (rc < 0)
-    {
-      perror("read");
-      cleanup();
-      return;
-    }
-    else if (rc == 0)
-    {
-      cleanup();
-      return;
-    }
-    else if (rc != sizeof(buf))
-    {
-      buf[rc] = '\0';
-    }
-    raw_data << buf;
-    int size;
-    int id;
-    int type;
-    std::string data;
-    raw_data >> size >> id >> type;
-    if (raw_data.fail())
-    {
-      return;
-    }
-    while(!raw_data.eof())
-    {
-      if (data.size() != 0)
-      {
-        data += ' ';
-      }
-      std::string s;
-      raw_data >> s;
-      data += s;
-    }
-    Message m(id, type, data);
-    execute(m);
+  rc = read(client, buf, sizeof(buf));
+  if (rc < 0)
+  {
+    perror("read");
+    cleanup();
+    return;
   }
+  else if (rc == 0)
+  {
+    cleanup();
+    return;
+  }
+  else if (rc != sizeof(buf))
+  {
+    buf[rc] = '\0';
+  }
+  raw_data << buf;
+  int size;
+  int id;
+  int type;
+  std::string data;
+  raw_data >> size >> id >> type;
+  if (raw_data.fail())
+  {
+    return;
+  }
+  while(!raw_data.eof())
+  {
+    if (data.size() != 0)
+    {
+      data += ' ';
+    }
+    std::string s;
+    raw_data >> s;
+    data += s;
+  }
+  Message m(id, type, data);
+  execute(m);
+  close(client);
 }
 
 
@@ -171,9 +169,11 @@ void AsyncWorker::execute(const Message &m)
           r = read(tevent.ident, buffer, tevent.data);
           if (r <= 0) { continue; }
           buffer[r] = '\0';
-          std::cout << buffer;
+          Message m;
+          m.data(0, 0, buffer);
+          const auto &rawData = m.data();
+          write(client, rawData.data(), rawData.size());
         }
-        std::cout << std::flush;
         int st;
         waitpid(pid, &st, 0);
       }
